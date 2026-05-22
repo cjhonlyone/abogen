@@ -1185,8 +1185,14 @@ class VibeVoiceSemanticTokenizerModel(PreTrainedModel):
         sampled_latents, _ = self.sampling(encoder_output, dist_type='none')
         return None, sampled_latents
 
-AutoModel.register(VibeVoiceAcousticTokenizerConfig, VibeVoiceAcousticTokenizerModel)
-AutoModel.register(VibeVoiceSemanticTokenizerConfig, VibeVoiceSemanticTokenizerModel)
+try:
+    AutoModel.register(VibeVoiceAcousticTokenizerConfig, VibeVoiceAcousticTokenizerModel)
+except ValueError:
+    pass
+try:
+    AutoModel.register(VibeVoiceSemanticTokenizerConfig, VibeVoiceSemanticTokenizerModel)
+except ValueError:
+    pass
 
 __all__ = [
     "VibeVoiceTokenizerStreamingCache",

@@ -864,7 +864,10 @@ class VibeVoiceForConditionalGenerationInference(VibeVoicePreTrainedModel, Gener
         return speech[: len(speech) // 2]
     
 
-AutoModelForCausalLM.register(VibeVoiceConfig, VibeVoiceForConditionalGenerationInference)
+try:
+    AutoModelForCausalLM.register(VibeVoiceConfig, VibeVoiceForConditionalGenerationInference)
+except ValueError:
+    pass
 
 __all__ = [
     "VibeVoiceForConditionalGenerationInference",
