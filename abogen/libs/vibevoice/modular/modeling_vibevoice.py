@@ -305,9 +305,13 @@ class VibeVoiceForConditionalGeneration(VibeVoicePreTrainedModel):
     def get_decoder(self):
         return self.model.language_model
 
-    def tie_weights(self):
+    def tie_weights(self, *args, **kwargs):
         """
         Tie the weights between the input embeddings and the output embeddings.
+
+        Accept ``*args, **kwargs`` so we stay compatible with newer transformers
+        versions (>=4.55) that pass ``recompute_mapping=False`` and similar
+        keywords from ``PreTrainedModel.init_weights``.
         """
         if getattr(self.config.decoder_config, 'tie_word_embeddings', False):
             # The standard PreTrainedModel method will handle the tying.

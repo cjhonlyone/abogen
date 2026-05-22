@@ -213,9 +213,13 @@ class VibeVoiceForConditionalGenerationInference(VibeVoicePreTrainedModel, Gener
     def semantic_connector(self):
         return self.model.semantic_connector
         
-    def tie_weights(self):
+    def tie_weights(self, *args, **kwargs):
         """
         Tie the weights between the input embeddings and the output embeddings.
+
+        Accept ``*args, **kwargs`` so we stay compatible with newer transformers
+        versions (>=4.55) that pass ``recompute_mapping=False`` and similar
+        keywords from ``PreTrainedModel.init_weights``.
         """
         # Tie lm_head.weight to language_model.embed_tokens.weight
         if not getattr(self.config, 'tie_word_embeddings', False):
