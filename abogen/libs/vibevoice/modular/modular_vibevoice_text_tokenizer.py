@@ -4,7 +4,16 @@ from typing import List, Optional, Union
 
 from transformers.utils import logging
 from transformers.models.qwen2.tokenization_qwen2 import Qwen2Tokenizer
-from transformers.models.qwen2.tokenization_qwen2_fast import Qwen2TokenizerFast
+
+# transformers>=4.52 reorganised internal modules; try multiple import paths.
+try:
+    from transformers.models.qwen2.tokenization_qwen2_fast import Qwen2TokenizerFast
+except ImportError:
+    try:
+        from transformers import Qwen2TokenizerFast  # type: ignore[no-redef]
+    except ImportError:
+        # Fast tokenizer not available — alias to slow tokenizer as fallback.
+        Qwen2TokenizerFast = Qwen2Tokenizer  # type: ignore[assignment,misc]
 
 logger = logging.get_logger(__name__)
 

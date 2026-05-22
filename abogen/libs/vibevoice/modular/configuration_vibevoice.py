@@ -8,7 +8,10 @@ from typing import Dict, List, Optional, Tuple
 from transformers.configuration_utils import PretrainedConfig 
 from transformers.utils import logging
 
-from transformers.models.qwen2.configuration_qwen2 import Qwen2Config
+try:
+    from transformers.models.qwen2.configuration_qwen2 import Qwen2Config
+except ImportError:
+    from transformers import Qwen2Config  # type: ignore[no-redef]
 
 logger = logging.get_logger(__name__)
 
