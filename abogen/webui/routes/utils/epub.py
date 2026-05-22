@@ -449,11 +449,17 @@ def locate_job_chapter_files(job: Job) -> List[Path]:
 def job_download_flags(job: Job) -> Dict[str, bool]:
     if job.status != JobStatus.COMPLETED:
         return {"audio": False, "m4b": False, "epub3": False, "chapters_zip": False}
-    chapter_files = locate_job_chapter_files(job)
-    has_merged = locate_job_audio(job) is not None
+    # "chapters-only" mode: chapters saved separately AND no merged file requested.
+    # In this case conversion_runner does NOT create a merged audio; result.audio_path
+    # is set to chapter_paths[0] as a fallback, not a real merged file.
+    chapters_only = (
+        getattr(job, "save_chapters_separately", False)
+        and not getattr(job, "merge_chapters_at_end", True)
+    )
+    chapter_files = locate_job_chapter_files(job) if chapters_only else []
     return {
-        "audio": has_merged,
+        "audio": not chapters_only and locate_job_audio(job) is not None,
         "m4b": locate_job_m4b(job) is not None,
         "epub3": locate_job_epub(job) is not None,
-        "chapters_zip": not has_merged and len(chapter_files) > 0,
+        "chapters_zip": chapters_only and len(chapter_files) > 0,
     }
