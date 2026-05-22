@@ -54,6 +54,7 @@
             <select id="profile-provider" name="provider" data-role="provider">
               <option value="kokoro">Kokoro</option>
               <option value="supertonic">Supertonic</option>
+              <option value="vibevoice">VibeVoice</option>
             </select>
           </div>
           <div class="field voice-editor__language">
@@ -83,6 +84,29 @@
               <input type="range" id="supertonic-speaker-speed" data-role="supertonic-speed" min="0.7" max="2.0" step="0.05" value="1.0">
             </div>
             <p class="hint">Supertonic voice mixing is not implemented yet. Stub target: <a href="https://github.com/Topping1/Supertonic-Voice-Mixer" target="_blank" rel="noreferrer">Supertonic-Voice-Mixer</a>.</p>
+          </div>
+          <div class="voice-editor__provider-panel" data-role="vibevoice-panel" hidden>
+            <div class="field">
+              <label for="vibevoice-voice">VibeVoice voice</label>
+              <select id="vibevoice-voice" data-role="vibevoice-voice">
+                {% for voice in ['V1','V2','V3','V4'] %}
+                <option value="{{ voice }}">{{ voice }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="vibevoice-model">VibeVoice model</label>
+              <input type="text" id="vibevoice-model" data-role="vibevoice-model" value="VibeVoice-1.5B" placeholder="VibeVoice-1.5B">
+            </div>
+            <div class="field field--slider">
+              <label for="vibevoice-steps">Diffusion steps <span class="tag" data-role="vibevoice-steps-display">20</span></label>
+              <input type="range" id="vibevoice-steps" data-role="vibevoice-steps" min="5" max="50" step="1" value="20">
+            </div>
+            <div class="field field--slider">
+              <label for="vibevoice-cfg">CFG scale <span class="tag" data-role="vibevoice-cfg-display">1.30</span></label>
+              <input type="range" id="vibevoice-cfg" data-role="vibevoice-cfg" min="1.0" max="2.0" step="0.05" value="1.3">
+            </div>
+            <p class="hint">VibeVoice uses 4 built-in synthetic voice templates (V1–V4). Model weights must be downloaded into <code>~/.cache/abogen/vibevoice/&lt;model&gt;/</code>.</p>
           </div>
         </div>
         <div class="voice-editor__summary">

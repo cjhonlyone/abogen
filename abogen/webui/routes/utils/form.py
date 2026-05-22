@@ -579,7 +579,7 @@ def apply_book_step_form(
     # spec (e.g. "speaker:Name" for saved speakers, or a Kokoro mix formula).
     # This enables mixed-provider conversions (e.g. narrator=SuperTonic, characters=Kokoro).
     provider_value = str(form.get("tts_provider") or "").strip().lower()
-    if provider_value in {"kokoro", "supertonic"}:
+    if provider_value in {"kokoro", "supertonic", "vibevoice"}:
         pending.tts_provider = provider_value
 
     # Determine the base speaker selection (saved speaker ref or raw voice).

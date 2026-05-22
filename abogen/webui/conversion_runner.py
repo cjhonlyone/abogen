@@ -47,6 +47,12 @@ from abogen.voice_profiles import load_profiles, normalize_profile_entry
 from abogen.pronunciation_store import increment_usage
 from abogen.llm_client import LLMClientError
 from abogen.tts_supertonic import DEFAULT_SUPERTONIC_VOICES, SupertonicPipeline
+from abogen.tts_vibevoice import DEFAULT_VIBEVOICE_VOICES, VibeVoicePipeline
+from abogen.tts_providers import (
+    known_providers,
+    infer_provider_from_spec as _registry_infer_provider,
+    normalize_discrete_voice,
+)
 
 from .service import Job, JobStatus
 
@@ -56,25 +62,11 @@ SAMPLE_RATE = 24000
 
 
 def _supertonic_voice_from_spec(spec: Any, fallback: str) -> str:
-    raw = str(spec or "").strip()
-    fallback_raw = str(fallback or "").strip()
+    return normalize_discrete_voice("supertonic", spec, fallback or "M1")
 
-    # SuperTonic voices are discrete IDs (M1/F3/...). If we see a Kokoro mix
-    # formula (contains '*' or '+'), ignore it and fall back to a safe voice.
-    if not raw or "*" in raw or "+" in raw:
-        raw = fallback_raw
-    if not raw or "*" in raw or "+" in raw:
-        raw = "M1"
 
-    upper = raw.upper()
-    if upper in DEFAULT_SUPERTONIC_VOICES:
-        return upper
-
-    fallback_upper = fallback_raw.upper() if fallback_raw else ""
-    if fallback_upper in DEFAULT_SUPERTONIC_VOICES:
-        return fallback_upper
-
-    return "M1"
+def _vibevoice_voice_from_spec(spec: Any, fallback: str) -> str:
+    return normalize_discrete_voice("vibevoice", spec, fallback or "V1")
 
 
 def _split_speaker_reference(value: Any) -> tuple[Optional[str], str]:
@@ -118,15 +110,7 @@ def _formula_from_kokoro_entry(entry: Mapping[str, Any]) -> str:
 
 
 def _infer_provider_from_spec(value: Any, fallback: str = "kokoro") -> str:
-    raw = str(value or "").strip()
-    if not raw:
-        return fallback
-    upper = raw.upper()
-    if upper in DEFAULT_SUPERTONIC_VOICES:
-        return "supertonic"
-    if "*" in raw or "+" in raw:
-        return "kokoro"
-    return fallback
+    return _registry_infer_provider(value, fallback)
 
 
 class _JobCancelled(Exception):
@@ -1573,7 +1557,7 @@ def run_conversion_job(job: Job) -> None:
         def get_pipeline(provider: str) -> Any:
             nonlocal kokoro_cache_ready
             provider_norm = str(provider or "kokoro").strip().lower() or "kokoro"
-            if provider_norm not in {"kokoro", "supertonic"}:
+            if provider_norm not in known_providers():
                 provider_norm = "kokoro"
 
             existing = pipelines.get(provider_norm)
@@ -1585,6 +1569,18 @@ def run_conversion_job(job: Job) -> None:
                     sample_rate=SAMPLE_RATE,
                     auto_download=True,
                     total_steps=int(getattr(job, "supertonic_total_steps", 5) or 5),
+                    language=getattr(job, "supertonic_lang", None),
+                )
+                return pipelines[provider_norm]
+
+            if provider_norm == "vibevoice":
+                pipelines[provider_norm] = VibeVoicePipeline(
+                    sample_rate=SAMPLE_RATE,
+                    model_name=str(getattr(job, "vibevoice_model", None) or "VibeVoice-1.5B"),
+                    diffusion_steps=int(getattr(job, "vibevoice_diffusion_steps", 20) or 20),
+                    cfg_scale=float(getattr(job, "vibevoice_cfg_scale", 1.3) or 1.3),
+                    attention=str(getattr(job, "vibevoice_attention", "auto") or "auto"),
+                    quantize=str(getattr(job, "vibevoice_quantize", "none") or "none"),
                 )
                 return pipelines[provider_norm]
 
@@ -1621,6 +1617,12 @@ def run_conversion_job(job: Job) -> None:
                     steps = int(entry.get("total_steps") or getattr(job, "supertonic_total_steps", 5) or 5)
                     speed = float(entry.get("speed") or getattr(job, "speed", 1.0) or 1.0)
                     return "supertonic", _supertonic_voice_from_spec(voice, getattr(job, "voice", "M1")), speed, steps
+                if provider == "vibevoice":
+                    voice = str(entry.get("voice") or getattr(job, "voice", "V1") or "V1").strip() or "V1"
+                    # vibevoice doesn't reuse the "steps" channel; we keep diffusion_steps in entry.
+                    steps = int(entry.get("diffusion_steps") or getattr(job, "vibevoice_diffusion_steps", 20) or 20)
+                    speed = float(entry.get("speed") or getattr(job, "speed", 1.0) or 1.0)
+                    return "vibevoice", _vibevoice_voice_from_spec(voice, getattr(job, "voice", "V1")), speed, steps
                 formula = _formula_from_kokoro_entry(entry)
                 return "kokoro", formula or spec, None, None
 
@@ -1628,6 +1630,8 @@ def run_conversion_job(job: Job) -> None:
             inferred = _infer_provider_from_spec(spec, fallback=fallback_provider)
             if inferred == "supertonic":
                 return "supertonic", _supertonic_voice_from_spec(spec, getattr(job, "voice", "M1")), None, None
+            if inferred == "vibevoice":
+                return "vibevoice", _vibevoice_voice_from_spec(spec, getattr(job, "voice", "V1")), None, None
             return "kokoro", spec, None, None
 
         def resolve_voice_choice(raw_spec: str) -> tuple[str, str, Any, Optional[float], Optional[int]]:
@@ -1858,6 +1862,17 @@ def run_conversion_job(job: Job) -> None:
                     speed=float(speed_override if speed_override is not None else job.speed),
                     split_pattern=split_pattern,
                     total_steps=int(supertonic_steps_override if supertonic_steps_override is not None else getattr(job, "supertonic_total_steps", 5)),
+                    language=getattr(job, "supertonic_lang", None),
+                )
+            elif provider == "vibevoice":
+                vibevoice_pipeline = get_pipeline("vibevoice")
+                voice_name = _vibevoice_voice_from_spec(voice_choice, getattr(job, "voice", "V1"))
+                segment_iter = vibevoice_pipeline(
+                    normalized,
+                    voice=voice_name,
+                    speed=float(speed_override if speed_override is not None else job.speed),
+                    split_pattern=split_pattern,
+                    diffusion_steps=int(supertonic_steps_override) if supertonic_steps_override is not None else None,
                 )
             else:
                 kokoro_pipeline = get_pipeline("kokoro")
@@ -2449,6 +2464,16 @@ def _load_pipeline(job: Job):
             sample_rate=SAMPLE_RATE,
             auto_download=True,
             total_steps=int(getattr(job, "supertonic_total_steps", 5) or 5),
+            language=getattr(job, "supertonic_lang", None),
+        )
+    if provider == "vibevoice":
+        return VibeVoicePipeline(
+            sample_rate=SAMPLE_RATE,
+            model_name=str(getattr(job, "vibevoice_model", None) or "VibeVoice-1.5B"),
+            diffusion_steps=int(getattr(job, "vibevoice_diffusion_steps", 20) or 20),
+            cfg_scale=float(getattr(job, "vibevoice_cfg_scale", 1.3) or 1.3),
+            attention=str(getattr(job, "vibevoice_attention", "auto") or "auto"),
+            quantize=str(getattr(job, "vibevoice_quantize", "none") or "none"),
         )
 
     device = "cpu"

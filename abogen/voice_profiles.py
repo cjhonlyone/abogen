@@ -4,6 +4,7 @@ from typing import Any, Dict, Iterable, List, Tuple
 
 from abogen.constants import VOICES_INTERNAL
 from abogen.tts_supertonic import DEFAULT_SUPERTONIC_VOICES
+from abogen.tts_vibevoice import DEFAULT_VIBEVOICE_VOICES
 from abogen.utils import get_user_config_path
 
 
@@ -73,6 +74,27 @@ def _normalize_supertonic_voice(value: Any) -> str:
     return raw if raw in DEFAULT_SUPERTONIC_VOICES else "M1"
 
 
+def _normalize_vibevoice_voice(value: Any) -> str:
+    raw = str(value or "").strip().upper()
+    return raw if raw in DEFAULT_VIBEVOICE_VOICES else "V1"
+
+
+def _coerce_vibevoice_steps(value: Any) -> int:
+    try:
+        steps = int(value)
+    except (TypeError, ValueError):
+        return 20
+    return max(5, min(100, steps))
+
+
+def _coerce_vibevoice_cfg(value: Any) -> float:
+    try:
+        cfg = float(value)
+    except (TypeError, ValueError):
+        return 1.3
+    return max(1.0, min(2.0, cfg))
+
+
 def _coerce_supertonic_steps(value: Any) -> int:
     try:
         steps = int(value)
@@ -101,7 +123,7 @@ def normalize_profile_entry(entry: Any) -> Dict[str, Any]:
         return {}
 
     provider = str(entry.get("provider") or "kokoro").strip().lower()
-    if provider not in {"kokoro", "supertonic"}:
+    if provider not in {"kokoro", "supertonic", "vibevoice"}:
         provider = "kokoro"
 
     language = str(entry.get("language") or "a").strip().lower() or "a"
@@ -121,6 +143,23 @@ def normalize_profile_entry(entry: Any) -> Dict[str, Any]:
             "speed": _coerce_supertonic_speed(
                 entry.get("speed") or entry.get("supertonic_speed")
             ),
+        }
+
+    if provider == "vibevoice":
+        return {
+            "provider": "vibevoice",
+            "language": language,
+            "voice": _normalize_vibevoice_voice(
+                entry.get("voice") or entry.get("voice_name") or entry.get("name")
+            ),
+            "model": str(entry.get("model") or entry.get("vibevoice_model") or "VibeVoice-1.5B"),
+            "diffusion_steps": _coerce_vibevoice_steps(
+                entry.get("diffusion_steps") or entry.get("vibevoice_diffusion_steps")
+            ),
+            "cfg_scale": _coerce_vibevoice_cfg(
+                entry.get("cfg_scale") or entry.get("vibevoice_cfg_scale")
+            ),
+            "speed": _coerce_supertonic_speed(entry.get("speed")),
         }
 
     voices = _normalize_voice_entries(entry.get("voices", []))

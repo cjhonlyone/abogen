@@ -114,6 +114,44 @@
               <input type="number" id="supertonic_speed" name="supertonic_speed" min="0.7" max="2.0" step="0.05" value="{{ '%.2f'|format(settings.supertonic_speed) }}">
             </div>
             <div class="field">
+              <label for="supertonic_lang">Supertonic Language</label>
+              <input type="text" id="supertonic_lang" name="supertonic_lang" value="{{ settings.supertonic_lang or '' }}" placeholder="auto (en, ko, ja, …)">
+              <p class="hint">Optional ISO code passed to Supertonic 3 (leave blank for auto).</p>
+            </div>
+
+            <div class="field field--wide">
+              <p class="tag">VibeVoice settings</p>
+              <p class="hint">Place model weights under <code>~/.cache/abogen/vibevoice/&lt;model&gt;/</code> (with a <code>tokenizer/</code> subdir).</p>
+            </div>
+            <div class="field">
+              <label for="vibevoice_model">VibeVoice Model</label>
+              <input type="text" id="vibevoice_model" name="vibevoice_model" value="{{ settings.vibevoice_model }}" placeholder="VibeVoice-1.5B">
+            </div>
+            <div class="field">
+              <label for="vibevoice_diffusion_steps">Diffusion Steps</label>
+              <input type="number" id="vibevoice_diffusion_steps" name="vibevoice_diffusion_steps" min="5" max="100" value="{{ settings.vibevoice_diffusion_steps }}">
+            </div>
+            <div class="field">
+              <label for="vibevoice_cfg_scale">CFG Scale</label>
+              <input type="number" id="vibevoice_cfg_scale" name="vibevoice_cfg_scale" min="1.0" max="2.0" step="0.05" value="{{ '%.2f'|format(settings.vibevoice_cfg_scale) }}">
+            </div>
+            <div class="field">
+              <label for="vibevoice_attention">Attention Backend</label>
+              <select id="vibevoice_attention" name="vibevoice_attention">
+                {% for opt in ['auto','eager','sdpa','flash_attention_2','sage'] %}
+                <option value="{{ opt }}" {% if settings.vibevoice_attention == opt %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="vibevoice_quantize">Quantization</label>
+              <select id="vibevoice_quantize" name="vibevoice_quantize">
+                {% for opt in ['none','int8','int4'] %}
+                <option value="{{ opt }}" {% if settings.vibevoice_quantize == opt %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
               <label for="chunk_level_default">Chunk Granularity</label>
               <select id="chunk_level_default" name="chunk_level">
                 {% for option in options.chunk_levels %}

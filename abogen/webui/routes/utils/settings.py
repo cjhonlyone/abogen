@@ -177,6 +177,12 @@ def settings_defaults() -> Dict[str, Any]:
         "default_voice": VOICES_INTERNAL[0] if VOICES_INTERNAL else "",
         "supertonic_total_steps": 5,
         "supertonic_speed": 1.0,
+        "supertonic_lang": "",
+        "vibevoice_model": "VibeVoice-1.5B",
+        "vibevoice_diffusion_steps": 20,
+        "vibevoice_cfg_scale": 1.3,
+        "vibevoice_attention": "auto",
+        "vibevoice_quantize": "none",
         "replace_single_newlines": False,
         "use_gpu": True,
         "save_chapters_separately": False,
@@ -365,6 +371,31 @@ def normalize_setting_value(key: str, value: Any, defaults: Dict[str, Any]) -> A
         except (TypeError, ValueError):
             return defaults.get(key, 1.0)
         return max(0.7, min(2.0, speed))
+    if key == "supertonic_lang":
+        return (str(value or "").strip().lower()) or ""
+    if key == "vibevoice_model":
+        text = (str(value or "").strip()) or "VibeVoice-1.5B"
+        return text
+    if key == "vibevoice_diffusion_steps":
+        try:
+            steps = int(value)
+        except (TypeError, ValueError):
+            return defaults.get(key, 20)
+        return max(5, min(100, steps))
+    if key == "vibevoice_cfg_scale":
+        try:
+            cfg = float(value)
+        except (TypeError, ValueError):
+            return defaults.get(key, 1.3)
+        return max(1.0, min(2.0, cfg))
+    if key == "vibevoice_attention":
+        allowed = {"auto", "eager", "sdpa", "flash_attention_2", "sage"}
+        text = str(value or "auto").strip().lower()
+        return text if text in allowed else "auto"
+    if key == "vibevoice_quantize":
+        allowed = {"none", "4bit", "8bit"}
+        text = str(value or "none").strip().lower()
+        return text if text in allowed else "none"
     return value if value is not None else defaults.get(key)
 
 

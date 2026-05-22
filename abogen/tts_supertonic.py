@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
+import inspect
 import logging
 import math
+import os
 import re
 from typing import Any, Iterable, Iterator, Optional
 
@@ -157,19 +159,27 @@ def _configure_supertonic_gpu() -> None:
 
 
 class SupertonicPipeline:
-    """Minimal adapter that mimics Kokoro's pipeline iteration interface."""
+    """Minimal adapter that mimics Kokoro's pipeline iteration interface.
+
+    Compatible with both Supertonic v1/v2 (no ``lang`` parameter) and
+    Supertonic v3 (multilingual + ``get_voice_style_from_path``). The new
+    behaviour is detected at runtime via ``inspect.signature`` so installing
+    either version Just Works.
+    """
 
     def __init__(
         self,
         *,
         sample_rate: int,
         auto_download: bool = True,
-        total_steps: int = 5,
+        total_steps: int = 8,
         max_chunk_length: int = 300,
+        language: Optional[str] = None,
     ) -> None:
         self.sample_rate = int(sample_rate)
         self.total_steps = int(total_steps)
         self.max_chunk_length = int(max_chunk_length)
+        self.language = (language or "").strip().lower() or None
 
         # Configure GPU providers before importing TTS
         _configure_supertonic_gpu()
@@ -182,6 +192,30 @@ class SupertonicPipeline:
             ) from exc
 
         self._tts = TTS(auto_download=auto_download)
+        try:
+            self._synth_params = set(
+                inspect.signature(self._tts.synthesize).parameters.keys()
+            )
+        except (TypeError, ValueError):
+            self._synth_params = set()
+        self._supports_lang = "lang" in self._synth_params
+        self._supports_voice_path = hasattr(self._tts, "get_voice_style_from_path")
+
+    def _resolve_voice_style(self, voice: str) -> Any:
+        """Return a Supertonic voice style object.
+
+        Accepts either a discrete voice name (``M1``…``F5``) or a path to a
+        custom voice JSON (v3 feature).
+        """
+        raw = (voice or "").strip()
+        if raw and (raw.lower().endswith(".json") or os.path.sep in raw) and self._supports_voice_path:
+            if os.path.exists(raw):
+                return self._tts.get_voice_style_from_path(raw)
+            logger.warning(
+                "Supertonic voice JSON not found, falling back to default voice: %s", raw
+            )
+        name = raw if raw and raw.upper() in DEFAULT_SUPERTONIC_VOICES else "M1"
+        return self._tts.get_voice_style(voice_name=name.upper())
 
     def __call__(
         self,
@@ -191,14 +225,17 @@ class SupertonicPipeline:
         speed: float,
         split_pattern: Optional[str] = None,
         total_steps: Optional[int] = None,
+        language: Optional[str] = None,
     ) -> Iterator[SupertonicSegment]:
-        voice_name = (voice or "").strip() or "M1"
         steps = int(total_steps) if total_steps is not None else self.total_steps
+        # v3 recommends 5–12; keep a permissive upper bound for advanced users.
         steps = max(2, min(15, steps))
         speed_value = float(speed) if speed is not None else 1.0
         speed_value = max(0.7, min(2.0, speed_value))
 
-        style = self._tts.get_voice_style(voice_name=voice_name)
+        lang_value = (language or self.language or "").strip().lower() or None
+
+        style = self._resolve_voice_style(voice)
         chunks = _split_text(
             text, split_pattern=split_pattern, max_chunk_length=self.max_chunk_length
         )
@@ -210,7 +247,7 @@ class SupertonicPipeline:
             # SuperTonic can raise ValueError for unsupported characters; strip and retry.
             for attempt in range(3):
                 try:
-                    wav, duration = self._tts.synthesize(
+                    synth_kwargs: dict[str, Any] = dict(
                         text=chunk_to_speak,
                         voice_style=style,
                         total_steps=steps,
@@ -219,7 +256,23 @@ class SupertonicPipeline:
                         silence_duration=0.0,
                         verbose=False,
                     )
+                    if self._supports_lang and lang_value:
+                        synth_kwargs["lang"] = lang_value
+                    wav, duration = self._tts.synthesize(**synth_kwargs)
                     break
+                except TypeError as exc:
+                    # Older Supertonic that rejects a kwarg we passed (e.g. lang).
+                    # Strip optional kwargs and retry once.
+                    if "lang" in synth_kwargs:
+                        synth_kwargs.pop("lang", None)
+                        self._supports_lang = False
+                        try:
+                            wav, duration = self._tts.synthesize(**synth_kwargs)
+                            break
+                        except Exception as inner:
+                            last_exc = inner
+                            raise inner
+                    raise
                 except ValueError as exc:
                     last_exc = exc
                     unsupported = _parse_unsupported_characters(exc)

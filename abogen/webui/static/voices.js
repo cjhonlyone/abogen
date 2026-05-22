@@ -33,6 +33,13 @@ const setupVoiceMixer = () => {
   const supertonicSpeedInput = app.querySelector('[data-role="supertonic-speed"]');
   const supertonicStepsLabel = app.querySelector('[data-role="supertonic-steps-display"]');
   const supertonicSpeedLabel = app.querySelector('[data-role="supertonic-speed-display"]');
+  const vibevoicePanelEl = app.querySelector('[data-role="vibevoice-panel"]');
+  const vibevoiceVoiceSelect = app.querySelector('[data-role="vibevoice-voice"]');
+  const vibevoiceModelInput = app.querySelector('[data-role="vibevoice-model"]');
+  const vibevoiceStepsInput = app.querySelector('[data-role="vibevoice-steps"]');
+  const vibevoiceStepsLabel = app.querySelector('[data-role="vibevoice-steps-display"]');
+  const vibevoiceCfgInput = app.querySelector('[data-role="vibevoice-cfg"]');
+  const vibevoiceCfgLabel = app.querySelector('[data-role="vibevoice-cfg-display"]');
   const speedInput = document.getElementById("preview-speed");
   const importInput = document.getElementById("voice-import-input");
   const headerActions = document.querySelector(".voice-mixer__header-actions");
@@ -82,6 +89,12 @@ const setupVoiceMixer = () => {
         voice: "M1",
         total_steps: 5,
         speed: 1.0,
+      },
+      vibevoice: {
+        voice: "V1",
+        model: "VibeVoice-1.5B",
+        diffusion_steps: 20,
+        cfg_scale: 1.3,
       },
     },
     languageFilter: voiceFilterSelect ? voiceFilterSelect.value : "",
@@ -150,7 +163,8 @@ const setupVoiceMixer = () => {
 
   const normalizeProvider = (value) => {
     const candidate = String(value || "").trim().toLowerCase();
-    return candidate === "supertonic" ? "supertonic" : "kokoro";
+    if (candidate === "supertonic" || candidate === "vibevoice") return candidate;
+    return "kokoro";
   };
 
   const getProviderCatalog = () => {
@@ -158,6 +172,7 @@ const setupVoiceMixer = () => {
       return [
         { id: "kokoro", label: "Kokoro" },
         { id: "supertonic", label: "Supertonic" },
+        { id: "vibevoice", label: "VibeVoice" },
       ];
     }
     return Array.from(providerSelect.options || []).map((option) => ({
@@ -170,6 +185,9 @@ const setupVoiceMixer = () => {
     const provider = normalizeProvider(providerId);
     if (provider === "supertonic") {
       return "Voice selection + quality/speed per speaker.";
+    }
+    if (provider === "vibevoice") {
+      return "VibeVoice synthetic templates (V1–V4) with diffusion controls.";
     }
     return "Voice mixing supported via the Kokoro mixer.";
   };
@@ -268,23 +286,28 @@ const setupVoiceMixer = () => {
   const applyProviderToUI = () => {
     const provider = normalizeProvider(state.draft.provider);
     const isSupertonic = provider === "supertonic";
+    const isVibevoice = provider === "vibevoice";
+    const isKokoro = provider === "kokoro";
     if (providerSelect) {
       providerSelect.value = provider;
     }
     if (languageField) {
-      languageField.hidden = isSupertonic;
+      languageField.hidden = !isKokoro;
     }
     if (kokoroMixerEl) {
-      kokoroMixerEl.hidden = isSupertonic;
+      kokoroMixerEl.hidden = !isKokoro;
     }
     if (supertonicPanelEl) {
       supertonicPanelEl.hidden = !isSupertonic;
     }
+    if (vibevoicePanelEl) {
+      vibevoicePanelEl.hidden = !isVibevoice;
+    }
     if (mixTotalEl) {
-      mixTotalEl.hidden = isSupertonic;
+      mixTotalEl.hidden = !isKokoro;
     }
     if (previewBtn) {
-      previewBtn.dataset.label = isSupertonic ? "Preview speaker" : (previewBtn.dataset.label || "Preview speaker");
+      previewBtn.dataset.label = !isKokoro ? "Preview speaker" : (previewBtn.dataset.label || "Preview speaker");
     }
 
     // Keep preview speed aligned with the Supertonic speaker speed.
@@ -299,8 +322,8 @@ const setupVoiceMixer = () => {
 
   const updateMixSummary = () => {
     const provider = normalizeProvider(state.draft.provider);
-    const isSupertonic = provider === "supertonic";
-    if (mixTotalEl && !isSupertonic) {
+    const isKokoro = provider === "kokoro";
+    if (mixTotalEl && isKokoro) {
       mixTotalEl.textContent = `Total weight: ${formatWeight(mixTotal())}`;
     }
     if (profileSummaryEl) {
@@ -309,8 +332,10 @@ const setupVoiceMixer = () => {
         profileSummaryEl.textContent = "Select or create a speaker to begin.";
       } else {
         const profileLabel = state.draft.name ? `Editing: ${state.draft.name}` : "Unsaved speaker";
-        if (isSupertonic) {
+        if (provider === "supertonic") {
           profileSummaryEl.textContent = `${profileLabel} · Supertonic`;
+        } else if (provider === "vibevoice") {
+          profileSummaryEl.textContent = `${profileLabel} · VibeVoice`;
         } else {
           profileSummaryEl.textContent = `${profileLabel} · ${voiceCount} voice${voiceCount === 1 ? "" : "s"}`;
         }
@@ -607,6 +632,27 @@ const setupVoiceMixer = () => {
       const speed = Number(state.draft.supertonic?.speed ?? 1.0);
       supertonicSpeedLabel.textContent = `${(Number.isFinite(speed) ? speed : 1.0).toFixed(2)}×`;
     }
+    if (vibevoiceVoiceSelect) {
+      vibevoiceVoiceSelect.value = state.draft.vibevoice?.voice || "V1";
+    }
+    if (vibevoiceModelInput) {
+      vibevoiceModelInput.value = state.draft.vibevoice?.model || "VibeVoice-1.5B";
+    }
+    if (vibevoiceStepsInput) {
+      vibevoiceStepsInput.value = String(state.draft.vibevoice?.diffusion_steps ?? 20);
+      setRangeFill(vibevoiceStepsInput);
+    }
+    if (vibevoiceStepsLabel) {
+      vibevoiceStepsLabel.textContent = String(state.draft.vibevoice?.diffusion_steps ?? 20);
+    }
+    if (vibevoiceCfgInput) {
+      vibevoiceCfgInput.value = String(state.draft.vibevoice?.cfg_scale ?? 1.3);
+      setRangeFill(vibevoiceCfgInput);
+    }
+    if (vibevoiceCfgLabel) {
+      const cfg = Number(state.draft.vibevoice?.cfg_scale ?? 1.3);
+      vibevoiceCfgLabel.textContent = (Number.isFinite(cfg) ? cfg : 1.3).toFixed(2);
+    }
     applyProviderToUI();
     renderSelectedVoices();
     updateMixSummary();
@@ -650,7 +696,7 @@ const setupVoiceMixer = () => {
       selectBtn.dataset.name = name;
       const profile = profiles[name] || {};
       const provider = normalizeProvider(profile.provider);
-      const providerLabel = provider === "supertonic" ? "Supertonic" : "Kokoro";
+      const providerLabel = provider === "supertonic" ? "Supertonic" : (provider === "vibevoice" ? "VibeVoice" : "Kokoro");
       selectBtn.innerHTML = `
         <span class="voice-list__name">${name}</span>
         <span class="voice-list__meta"><span class="tag">${providerLabel}</span> ${voiceLanguageLabel(profile.language || "a")}</span>
@@ -700,9 +746,15 @@ const setupVoiceMixer = () => {
       language: profile?.language || "a",
       voices: new Map(),
       supertonic: {
-        voice: profile?.voice || "M1",
+        voice: profile?.provider === "supertonic" ? (profile?.voice || "M1") : "M1",
         total_steps: Number(profile?.total_steps ?? 5),
         speed: Number(profile?.speed ?? 1.0),
+      },
+      vibevoice: {
+        voice: profile?.provider === "vibevoice" ? (profile?.voice || "V1") : "V1",
+        model: profile?.model || "VibeVoice-1.5B",
+        diffusion_steps: Number(profile?.diffusion_steps ?? 20),
+        cfg_scale: Number(profile?.cfg_scale ?? 1.3),
       },
     };
     if (provider === "kokoro" && Array.isArray(profile?.voices)) {
@@ -735,6 +787,12 @@ const setupVoiceMixer = () => {
         voice: "M1",
         total_steps: 5,
         speed: 1.0,
+      },
+      vibevoice: {
+        voice: "V1",
+        model: "VibeVoice-1.5B",
+        diffusion_steps: 20,
+        cfg_scale: 1.3,
       },
     };
     applyDraftToControls();
@@ -796,15 +854,19 @@ const setupVoiceMixer = () => {
       setStatus("Give your profile a name first.", "warning");
       return;
     }
+    const provider = normalizeProvider(state.draft.provider);
     const payload = {
       name,
       originalName: state.originalName,
-      provider: normalizeProvider(state.draft.provider),
-      language: normalizeProvider(state.draft.provider) === "kokoro" ? (languageSelect ? languageSelect.value : "a") : "a",
-      voices: normalizeProvider(state.draft.provider) === "kokoro" ? buildProfilePayload() : [],
-      voice: state.draft.supertonic?.voice,
+      provider,
+      language: provider === "kokoro" ? (languageSelect ? languageSelect.value : "a") : "a",
+      voices: provider === "kokoro" ? buildProfilePayload() : [],
+      voice: provider === "vibevoice" ? state.draft.vibevoice?.voice : state.draft.supertonic?.voice,
       total_steps: state.draft.supertonic?.total_steps,
-      speed: state.draft.supertonic?.speed,
+      speed: provider === "vibevoice" ? 1.0 : state.draft.supertonic?.speed,
+      model: state.draft.vibevoice?.model,
+      diffusion_steps: state.draft.vibevoice?.diffusion_steps,
+      cfg_scale: state.draft.vibevoice?.cfg_scale,
     };
     try {
       const response = await fetch("/api/voice-profiles", {
@@ -913,7 +975,7 @@ const setupVoiceMixer = () => {
       provider,
       language: languageSelect ? languageSelect.value : "a",
       voices: provider === "kokoro" ? buildProfilePayload() : [],
-      voice: state.draft.supertonic?.voice,
+      voice: provider === "vibevoice" ? state.draft.vibevoice?.voice : state.draft.supertonic?.voice,
       total_steps: state.draft.supertonic?.total_steps,
       text: previewTextEl ? previewTextEl.value : "",
       speed: speedInput ? parseFloat(speedInput.value || "1") : 1,
@@ -925,13 +987,19 @@ const setupVoiceMixer = () => {
         setStatus("Enable at least one voice to preview.", "warning");
         return;
       }
-    } else {
+    } else if (provider === "supertonic") {
       if (!payload.voice) {
         setStatus("Select a Supertonic voice to preview.", "warning");
         return;
       }
       payload.supertonic_total_steps = payload.total_steps;
       payload.tts_provider = "supertonic";
+    } else if (provider === "vibevoice") {
+      if (!payload.voice) {
+        setStatus("Select a VibeVoice voice to preview.", "warning");
+        return;
+      }
+      payload.tts_provider = "vibevoice";
     }
     previewBtn.disabled = true;
     previewBtn.dataset.loading = "true";
@@ -1004,8 +1072,8 @@ const setupVoiceMixer = () => {
   if (providerSelect) {
     providerSelect.addEventListener("change", () => {
       state.draft.provider = normalizeProvider(providerSelect.value);
-      // When switching to Supertonic, clear Kokoro mix.
-      if (state.draft.provider === "supertonic") {
+      // When switching away from Kokoro, clear Kokoro mix.
+      if (state.draft.provider !== "kokoro") {
         state.draft.voices = new Map();
       }
       applyDraftToControls();
@@ -1013,6 +1081,43 @@ const setupVoiceMixer = () => {
       loadSampleText();
       setStatus("Provider updated.", "info", 1500);
     });
+  }
+
+  if (vibevoiceVoiceSelect) {
+    vibevoiceVoiceSelect.addEventListener("change", () => {
+      state.draft.vibevoice.voice = vibevoiceVoiceSelect.value;
+      markDirty();
+      updateMixSummary();
+    });
+  }
+  if (vibevoiceModelInput) {
+    vibevoiceModelInput.addEventListener("input", () => {
+      state.draft.vibevoice.model = vibevoiceModelInput.value.trim() || "VibeVoice-1.5B";
+      markDirty();
+    });
+  }
+  if (vibevoiceStepsInput) {
+    vibevoiceStepsInput.addEventListener("input", () => {
+      const value = Number(vibevoiceStepsInput.value || "20");
+      state.draft.vibevoice.diffusion_steps = clamp(Math.round(value), 5, 50);
+      vibevoiceStepsInput.value = String(state.draft.vibevoice.diffusion_steps);
+      if (vibevoiceStepsLabel) vibevoiceStepsLabel.textContent = vibevoiceStepsInput.value;
+      setRangeFill(vibevoiceStepsInput);
+      markDirty();
+    });
+    setRangeFill(vibevoiceStepsInput);
+  }
+  if (vibevoiceCfgInput) {
+    vibevoiceCfgInput.addEventListener("input", () => {
+      const value = parseFloat(vibevoiceCfgInput.value || "1.3");
+      const normalized = clamp(value, 1.0, 2.0);
+      state.draft.vibevoice.cfg_scale = normalized;
+      vibevoiceCfgInput.value = normalized.toFixed(2);
+      if (vibevoiceCfgLabel) vibevoiceCfgLabel.textContent = normalized.toFixed(2);
+      setRangeFill(vibevoiceCfgInput);
+      markDirty();
+    });
+    setRangeFill(vibevoiceCfgInput);
   }
 
   if (supertonicVoiceSelect) {

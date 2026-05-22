@@ -669,7 +669,7 @@ def resolve_voice_choice(
         # - SuperTonic profiles represent a discrete voice id + settings.
         #   In that case, we return a speaker reference so downstream can
         #   resolve provider per-speaker and allow mixed-provider casting.
-        if provider == "supertonic":
+        if provider in {"supertonic", "vibevoice"}:
             resolved_voice = f"speaker:{profile_name}"
             selected_profile = profile_name
             profile_language = (entry or {}).get("language")

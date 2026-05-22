@@ -63,7 +63,7 @@ def api_save_voice_profile() -> ResponseReturnValue:
     if profile is None:
         # Speaker Studio payload format
         provider = str(payload.get("provider") or "kokoro").strip().lower()
-        if provider not in {"kokoro", "supertonic"}:
+        if provider not in {"kokoro", "supertonic", "vibevoice"}:
             provider = "kokoro"
         if provider == "supertonic":
             profile = {
@@ -72,6 +72,16 @@ def api_save_voice_profile() -> ResponseReturnValue:
                 "voice": payload.get("voice"),
                 "total_steps": payload.get("total_steps") or payload.get("supertonic_total_steps"),
                 "speed": payload.get("speed") or payload.get("supertonic_speed"),
+            }
+        elif provider == "vibevoice":
+            profile = {
+                "provider": "vibevoice",
+                "language": str(payload.get("language") or "a").strip().lower() or "a",
+                "voice": payload.get("voice"),
+                "model": payload.get("model") or payload.get("vibevoice_model"),
+                "diffusion_steps": payload.get("diffusion_steps") or payload.get("vibevoice_diffusion_steps"),
+                "cfg_scale": payload.get("cfg_scale") or payload.get("vibevoice_cfg_scale"),
+                "speed": payload.get("speed"),
             }
         else:
             profile = {
@@ -173,6 +183,9 @@ def api_voice_profiles_preview() -> ResponseReturnValue:
         # Allow per-speaker overrides via payload.
         supertonic_total_steps = int(payload.get("supertonic_total_steps") or payload.get("total_steps") or supertonic_total_steps)
         speed = coerce_float(payload.get("supertonic_speed") or payload.get("speed"), speed)
+    elif resolved_provider == "vibevoice" and not profile_name:
+        voice_spec = str(payload.get("voice") or payload.get("vibevoice_voice") or "V1").strip() or "V1"
+        speed = coerce_float(payload.get("speed"), speed)
     elif profile_name:
         entry = profiles.get(profile_name)
         normalized_entry = normalize_profile_entry(entry)
@@ -182,6 +195,9 @@ def api_voice_profiles_preview() -> ResponseReturnValue:
         if resolved_provider == "supertonic":
             voice_spec = str(normalized_entry.get("voice") or "M1")
             supertonic_total_steps = int(normalized_entry.get("total_steps") or supertonic_total_steps)
+            speed = float(normalized_entry.get("speed") or speed)
+        elif resolved_provider == "vibevoice":
+            voice_spec = str(normalized_entry.get("voice") or "V1")
             speed = float(normalized_entry.get("speed") or speed)
         else:
             voice_spec = formula_from_profile(normalized_entry) or ""
@@ -230,7 +246,7 @@ def api_speaker_preview() -> ResponseReturnValue:
     use_gpu = settings.get("use_gpu", False)
 
     base_spec, speaker_name = split_profile_spec(voice)
-    resolved_provider = tts_provider if tts_provider in {"kokoro", "supertonic"} else ""
+    resolved_provider = tts_provider if tts_provider in {"kokoro", "supertonic", "vibevoice"} else ""
 
     if speaker_name:
         entry = normalize_profile_entry(load_profiles().get(speaker_name))
@@ -241,11 +257,21 @@ def api_speaker_preview() -> ResponseReturnValue:
                 supertonic_total_steps = int(entry.get("total_steps") or supertonic_total_steps)
                 if speed_value is None:
                     speed = coerce_float(entry.get("speed"), speed)
+            elif resolved_provider == "vibevoice":
+                voice = str(entry.get("voice") or "V1")
+                if speed_value is None:
+                    speed = coerce_float(entry.get("speed"), speed)
             elif resolved_provider == "kokoro":
                 voice = formula_from_profile(entry) or (base_spec or voice)
 
     if not resolved_provider:
-        resolved_provider = "supertonic" if str(base_spec or "").strip() in {"M1","M2","M3","M4","M5","F1","F2","F3","F4","F5"} else "kokoro"
+        base_norm = str(base_spec or "").strip().upper()
+        if base_norm in {"M1","M2","M3","M4","M5","F1","F2","F3","F4","F5"}:
+            resolved_provider = "supertonic"
+        elif base_norm in {"V1","V2","V3","V4"}:
+            resolved_provider = "vibevoice"
+        else:
+            resolved_provider = "kokoro"
 
     pronunciation_overrides = None
     manual_overrides = None

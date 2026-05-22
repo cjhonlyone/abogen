@@ -232,7 +232,7 @@
                         <optgroup label="Saved speakers">
                           {% for profile in options.voice_profile_options %}
                           {% set profile_value = 'speaker:' ~ profile.name %}
-                          {% set provider_label = 'Supertonic' if profile.provider == 'supertonic' else 'Kokoro' %}
+                          {% set provider_label = 'VibeVoice' if profile.provider == 'vibevoice' else ('Supertonic' if profile.provider == 'supertonic' else 'Kokoro') %}
                           <option value="{{ profile_value }}" {% if selected_voice == profile_value %}selected{% endif %}>
                             {{ profile.name }} · {{ provider_label }}{% if profile.language %} · {{ profile.language|upper }}{% endif %}
                           </option>

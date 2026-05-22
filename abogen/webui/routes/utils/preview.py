@@ -127,7 +127,7 @@ def generate_preview_audio(
             source_text = text
 
     normalized_text = source_text
-    if provider != "supertonic":
+    if provider == "kokoro":
         try:
             from abogen.kokoro_text_normalization import normalize_for_pipeline
 
@@ -146,6 +146,16 @@ def generate_preview_audio(
             speed=speed,
             split_pattern=SPLIT_PATTERN,
             total_steps=supertonic_total_steps,
+        )
+    elif provider == "vibevoice":
+        from abogen.tts_vibevoice import VibeVoicePipeline
+
+        pipeline = VibeVoicePipeline(sample_rate=SAMPLE_RATE)
+        segments = pipeline(
+            normalized_text,
+            voice=voice_spec or "V1",
+            speed=speed,
+            split_pattern=SPLIT_PATTERN,
         )
     else:
         pipeline, pipeline_uses_gpu = _resolve_pipeline(language, use_gpu)

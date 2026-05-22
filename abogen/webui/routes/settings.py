@@ -51,6 +51,23 @@ def update_settings() -> ResponseReturnValue:
         current["supertonic_speed"] = max(0.7, min(2.0, float(form.get("supertonic_speed", current.get("supertonic_speed", 1.0)))))
     except (TypeError, ValueError):
         pass
+    sup_lang = (form.get("supertonic_lang") or "").strip()
+    current["supertonic_lang"] = sup_lang if sup_lang else None
+    current["vibevoice_model"] = (form.get("vibevoice_model") or current.get("vibevoice_model") or "VibeVoice-1.5B").strip()
+    try:
+        current["vibevoice_diffusion_steps"] = max(5, min(100, int(form.get("vibevoice_diffusion_steps", current.get("vibevoice_diffusion_steps", 20)))))
+    except (TypeError, ValueError):
+        pass
+    try:
+        current["vibevoice_cfg_scale"] = max(1.0, min(2.0, float(form.get("vibevoice_cfg_scale", current.get("vibevoice_cfg_scale", 1.3)))))
+    except (TypeError, ValueError):
+        pass
+    vv_attn = (form.get("vibevoice_attention") or current.get("vibevoice_attention") or "auto").strip().lower()
+    if vv_attn in {"auto", "eager", "sdpa", "flash_attention_2", "sage"}:
+        current["vibevoice_attention"] = vv_attn
+    vv_quant = (form.get("vibevoice_quantize") or current.get("vibevoice_quantize") or "none").strip().lower()
+    if vv_quant in {"none", "int8", "int4"}:
+        current["vibevoice_quantize"] = vv_quant
     current["output_format"] = (form.get("output_format") or "mp3").strip()
     current["subtitle_mode"] = (form.get("subtitle_mode") or "Disabled").strip()
     current["subtitle_format"] = (form.get("subtitle_format") or "srt").strip()

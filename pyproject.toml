@@ -120,6 +120,25 @@ cuda130 = ["torch"]
 rocm = ["torch", "pytorch-triton-rocm"]
 # Development dependencies               # uv tool install abogen[dev]
 dev = ["build", "pytest"]
+# VibeVoice TTS backend (vendored vvembed)  # uv tool install abogen[vibevoice]
+# Heavy ML stack; opt-in only. Models must be downloaded manually to the
+# `vibevoice/` cache folder (see README).
+vibevoice = [
+  "accelerate>=1.6.0",
+  "transformers>=4.51.3,<5.0.0",
+  "diffusers",
+  "tqdm",
+  "scipy",
+  "ml-collections",
+  "torch>=2.0.0",
+  "torchaudio>=2.0.0",
+  "numpy>=1.20.0",
+  "librosa>=0.9.0",
+  "soundfile>=0.12.0",
+  "peft>=0.17.0",
+  "huggingface_hub>=0.25.1",
+  "protobuf",
+]
 
 # --- KOKORO CONFIGURATION (for macOS) ---
 
