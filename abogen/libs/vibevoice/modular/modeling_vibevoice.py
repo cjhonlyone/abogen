@@ -181,12 +181,15 @@ class VibeVoiceModel(VibeVoicePreTrainedModel):
         # Initialize prediction head using vendored class directly (same conflict avoidance).
         self.prediction_head = VibeVoiceDiffusionHead(config.diffusion_head_config).to(dtype)
 
-        # Initialize noise scheduler
-        self.noise_scheduler = DPMSolverMultistepScheduler(
-            num_train_timesteps=config.diffusion_head_config.ddpm_num_steps,
-            beta_schedule=config.diffusion_head_config.ddpm_beta_schedule,
-            prediction_type=config.diffusion_head_config.prediction_type
-        )
+        # Defer noise scheduler construction. DPMSolverMultistepScheduler.__init__
+        # creates tensors (e.g. self.sigmas) and calls .to("cpu") on them. When
+        # VibeVoiceModel is instantiated inside transformers' from_pretrained
+        # under accelerate's init_empty_weights() context, those tensors are
+        # silently allocated on the meta device, and .to("cpu") then raises
+        # "Cannot copy out of meta tensor; no data!". The scheduler is not a
+        # learnable module, so we build it lazily on first access — by then
+        # from_pretrained has returned and the meta context is gone.
+        self._noise_scheduler = None
     
     def get_input_embeddings(self):
         if hasattr(self.language_model, 'embed_tokens'):
@@ -200,6 +203,25 @@ class VibeVoiceModel(VibeVoicePreTrainedModel):
 
     def set_input_embeddings(self, value):
         self.language_model.embed_tokens = value
+
+    @property
+    def noise_scheduler(self):
+        """Lazily construct the DPM scheduler outside of any meta-init context.
+
+        Building the scheduler inside ``__init__`` fails when ``from_pretrained``
+        runs under ``init_empty_weights()`` because the scheduler allocates
+        tensors that then become meta tensors. Constructing on first access
+        side-steps the issue: by the time inference code reads
+        ``model.noise_scheduler`` the meta context is no longer active.
+        """
+        if self._noise_scheduler is None:
+            head_cfg = self.config.diffusion_head_config
+            self._noise_scheduler = DPMSolverMultistepScheduler(
+                num_train_timesteps=head_cfg.ddpm_num_steps,
+                beta_schedule=head_cfg.ddpm_beta_schedule,
+                prediction_type=head_cfg.prediction_type,
+            )
+        return self._noise_scheduler
     
     def set_speech_tokenizers(self, acoustic_tokenizer=None, semantic_tokenizer=None):
         """Set the speech tokenizers used for encoding and decoding speech."""
