@@ -179,16 +179,54 @@ def _candidate_model_dirs(model_name: str) -> List[Path]:
     return cands
 
 
+_HF_REPO_ID = "microsoft/VibeVoice-1.5B"
+_HF_TOKENIZER_REPO_ID = "Qwen/Qwen2.5-1.5B"
+
+
+def _hf_download_model(model_name: str) -> Path:
+    """Download model from HuggingFace Hub into the abogen vibevoice cache."""
+    from huggingface_hub import snapshot_download  # type: ignore[import-not-found]
+
+    try:
+        base = Path(__import__("abogen.utils", fromlist=["get_user_cache_path"]).get_user_cache_path()) / "vibevoice"
+    except Exception:
+        base = Path.home() / ".cache" / "abogen" / "vibevoice"
+    local_dir = base / model_name
+    local_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Downloading VibeVoice model '%s' from %s ...", model_name, _HF_REPO_ID)
+    snapshot_download(repo_id=_HF_REPO_ID, local_dir=str(local_dir))
+    return local_dir
+
+
+def _hf_download_tokenizer(dest_dir: Path) -> Path:
+    """Download Qwen2.5-1.5B tokenizer files from HuggingFace Hub."""
+    from huggingface_hub import snapshot_download  # type: ignore[import-not-found]
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("Downloading VibeVoice tokenizer from %s ...", _HF_TOKENIZER_REPO_ID)
+    snapshot_download(
+        repo_id=_HF_TOKENIZER_REPO_ID,
+        local_dir=str(dest_dir),
+        ignore_patterns=["*.bin", "*.safetensors", "*.pt"],  # tokenizer files only
+    )
+    return dest_dir
+
+
 def _resolve_model_dir(model_name: str) -> Path:
     for cand in _candidate_model_dirs(model_name):
         if cand.exists() and any(cand.iterdir()):
             return cand
-    searched = "\n  ".join(str(c) for c in _candidate_model_dirs(model_name))
-    raise RuntimeError(
-        f"VibeVoice model '{model_name}' not found. Searched:\n  {searched}\n"
-        "Download the weights manually from HuggingFace "
-        "(see README) and place them in one of the above locations."
-    )
+    # Not found locally — auto-download from HuggingFace.
+    logger.info("VibeVoice model '%s' not found locally, attempting HuggingFace download.", model_name)
+    try:
+        return _hf_download_model(model_name)
+    except Exception as exc:
+        searched = "\n  ".join(str(c) for c in _candidate_model_dirs(model_name))
+        raise RuntimeError(
+            f"VibeVoice model '{model_name}' not found and auto-download failed: {exc}\n"
+            f"Searched:\n  {searched}\n"
+            f"You can manually download from https://huggingface.co/{_HF_REPO_ID}"
+        ) from exc
 
 
 def _resolve_tokenizer_dir(model_dir: Path) -> Path:
@@ -196,14 +234,21 @@ def _resolve_tokenizer_dir(model_dir: Path) -> Path:
     for cand in (
         base / "tokenizer",
         base / "models--Qwen--Qwen2.5-1.5B",
+        model_dir,  # some HF snapshots include tokenizer files in the model dir
     ):
-        if cand.exists():
+        if cand.exists() and any(cand.glob("tokenizer*.json")):
             return cand
-    raise RuntimeError(
-        f"VibeVoice tokenizer (Qwen2.5-1.5B) not found near {base}. "
-        "Download it from https://huggingface.co/Qwen/Qwen2.5-1.5B and place "
-        f"the tokenizer files under {base / 'tokenizer'}."
-    )
+    # Not found — auto-download tokenizer only.
+    tokenizer_dir = base / "tokenizer"
+    logger.info("VibeVoice tokenizer not found locally, attempting HuggingFace download.")
+    try:
+        return _hf_download_tokenizer(tokenizer_dir)
+    except Exception as exc:
+        raise RuntimeError(
+            f"VibeVoice tokenizer (Qwen2.5-1.5B) not found and auto-download failed: {exc}\n"
+            f"You can manually download from https://huggingface.co/{_HF_TOKENIZER_REPO_ID} "
+            f"and place tokenizer files under {tokenizer_dir}."
+        ) from exc
 
 
 def _select_torch_device() -> str:
