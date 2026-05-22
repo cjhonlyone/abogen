@@ -157,6 +157,8 @@ def _candidate_model_dirs(model_name: str) -> List[Path]:
       1. ``$ABOGEN_VIBEVOICE_DIR/<model_name>``
       2. ``<user cache>/vibevoice/<model_name>``
       3. ``<user cache>/vibevoice/models--*--<model_name>/snapshots/<hash>``
+      4. Standard HuggingFace hub cache: ``~/.cache/huggingface/hub/models--*--<model_name>/snapshots/<hash>``
+         (also respects ``HF_HOME`` / ``HF_HUB_CACHE`` env vars)
     """
     from abogen.utils import get_user_cache_path
 
@@ -171,11 +173,23 @@ def _candidate_model_dirs(model_name: str) -> List[Path]:
         base = Path.home() / ".cache" / "abogen" / "vibevoice"
     cands.append(base / model_name)
 
-    # HuggingFace cache layout fallback.
+    # HuggingFace cache layout under abogen cache dir.
     if base.exists():
-        for entry in base.glob(f"models--*--{model_name}/snapshots/*"):
+        for entry in sorted(base.glob(f"models--*--{model_name}/snapshots/*")):
             if entry.is_dir():
                 cands.append(entry)
+
+    # Standard HuggingFace hub cache (respects HF_HOME / HF_HUB_CACHE env vars).
+    hf_hub_cache = (
+        Path(os.environ["HF_HUB_CACHE"])
+        if "HF_HUB_CACHE" in os.environ
+        else Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+    )
+    if hf_hub_cache.exists():
+        for entry in sorted(hf_hub_cache.glob(f"models--*--{model_name}/snapshots/*")):
+            if entry.is_dir():
+                cands.append(entry)
+
     return cands
 
 
