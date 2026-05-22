@@ -352,6 +352,35 @@ if /I "%IS_NVIDIA%"=="true" (
     )
 )
 
+:: Install onnxruntime-gpu when CUDA is available (needed for Supertonic GPU acceleration)
+if /I "%IS_NVIDIA%"=="true" (
+    echo.
+    echo Installing onnxruntime-gpu for Supertonic GPU acceleration...
+    %PYTHON_CONSOLE_PATH% -m uv pip install --system onnxruntime-gpu --extra-index-url https://aiinfra.pkgs.visualstudio.com/PublicPackages/_packaging/onnxruntime-cuda-12/pypi/simple/
+    if errorlevel 1 (
+        echo Warning: Failed to install onnxruntime-gpu. Supertonic will use CPU.
+    )
+)
+
+:: Ask user if they want to install VibeVoice support
+echo.
+echo Do you want to install VibeVoice TTS support?
+echo ^(Requires ~500MB extra dependencies: diffusers, accelerate, librosa, peft...^)
+echo Model weights ^(~3GB^) will be downloaded automatically on first use.
+echo.
+choice /C YN /M "Y=Yes, N=No"
+if errorlevel 2 (
+    echo Skipping VibeVoice installation.
+) else (
+    echo Installing VibeVoice dependencies...
+    %PYTHON_CONSOLE_PATH% -m uv pip install --system diffusers accelerate librosa peft scipy ml-collections
+    if errorlevel 1 (
+        echo Warning: Some VibeVoice dependencies failed to install.
+    ) else (
+        echo VibeVoice dependencies installed successfully.
+    )
+)
+
 :: Ask user if they want to create a desktop shortcut
 echo.
 echo Do you want to create a desktop shortcut for %NAME%?                                       
