@@ -154,11 +154,14 @@ class VibeVoiceModel(VibeVoicePreTrainedModel):
         
         # Initialize Qwen2 model for language modeling
         lm_config = config.decoder_config 
+        # Use AutoModel for Qwen2 (standard transformers class, no conflict risk)
         self.language_model = AutoModel.from_config(lm_config)
         
-        # Initialize speech components if needed
-        self.acoustic_tokenizer = AutoModel.from_config(config.acoustic_tokenizer_config).to(dtype)
-        self.semantic_tokenizer = AutoModel.from_config(config.semantic_tokenizer_config).to(dtype)
+        # Initialize speech components using vendored classes directly, bypassing
+        # the AutoModel registry to avoid conflicts with any installed 'vibevoice'
+        # PyPI package which registers the same class names with different internals.
+        self.acoustic_tokenizer = VibeVoiceAcousticTokenizerModel(config.acoustic_tokenizer_config).to(dtype)
+        self.semantic_tokenizer = VibeVoiceSemanticTokenizerModel(config.semantic_tokenizer_config).to(dtype)
 
         self.acoustic_connector = SpeechConnector(config.acoustic_vae_dim, lm_config.hidden_size).to(dtype)
         self.semantic_connector = SpeechConnector(config.semantic_vae_dim, lm_config.hidden_size).to(dtype)
@@ -167,8 +170,8 @@ class VibeVoiceModel(VibeVoicePreTrainedModel):
         self.register_buffer('speech_scaling_factor', torch.tensor(float('nan')))  
         self.register_buffer('speech_bias_factor', torch.tensor(float('nan')))
 
-        # Initialize prediction head for speech generation
-        self.prediction_head = AutoModel.from_config(config.diffusion_head_config).to(dtype)
+        # Initialize prediction head using vendored class directly (same conflict avoidance).
+        self.prediction_head = VibeVoiceDiffusionHead(config.diffusion_head_config).to(dtype)
 
         # Initialize noise scheduler
         self.noise_scheduler = DPMSolverMultistepScheduler(
