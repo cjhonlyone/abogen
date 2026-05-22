@@ -1065,24 +1065,24 @@ class VibeVoiceAcousticTokenizerModel(PreTrainedModel):
         self.apply(self._init_weights)
     
     def _init_weights(self, module):
-        """Initialize weights for the model"""
+        """Initialize weights for the model. Skipped on meta tensors (from_pretrained context)."""
         if isinstance(module, nn.Linear):
+            if module.weight.is_meta:
+                return
             nn.init.normal_(module.weight, std=self.config.weight_init_value)
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
         elif isinstance(module, nn.LayerNorm):
+            if module.weight.is_meta:
+                return
             nn.init.ones_(module.weight)
             nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Conv1d):
+            if module.weight.is_meta:
+                return
             nn.init.normal_(module.weight, std=self.config.weight_init_value)
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
-    
-    @torch.no_grad()
-    def encode(self, audio, cache=None, sample_indices=None, use_cache=False, debug=False):
-        """Convert audio to latent representations"""
-        latents = self.encoder(audio, cache=cache, sample_indices=sample_indices, use_cache=use_cache, debug=debug)
-        return VibeVoiceTokenizerEncoderOutput(mean=latents.permute(0, 2, 1), std=self.fix_std)
     
     @torch.no_grad()
     def sampling(self, encoder_output, dist_type=None):
@@ -1155,15 +1155,21 @@ class VibeVoiceSemanticTokenizerModel(PreTrainedModel):
         self.apply(self._init_weights)
     
     def _init_weights(self, module):
-        """Initialize weights for the model"""
+        """Initialize weights for the model. Skipped on meta tensors (from_pretrained context)."""
         if isinstance(module, nn.Linear):
+            if module.weight.is_meta:
+                return
             nn.init.normal_(module.weight, std=self.config.weight_init_value)
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
         elif isinstance(module, nn.LayerNorm):
+            if module.weight.is_meta:
+                return
             nn.init.ones_(module.weight)
             nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Conv1d):
+            if module.weight.is_meta:
+                return
             nn.init.normal_(module.weight, std=self.config.weight_init_value)
             if module.bias is not None:
                 nn.init.zeros_(module.bias)

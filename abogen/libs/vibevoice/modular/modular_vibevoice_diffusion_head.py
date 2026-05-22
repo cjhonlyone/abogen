@@ -238,7 +238,9 @@ class VibeVoiceDiffusionHead(PreTrainedModel):
         self.initialize_weights()
 
     def initialize_weights(self):
-        """Initialize the weights of the model."""
+        """Initialize the weights of the model. Skipped on meta tensors (from_pretrained context)."""
+        if self.t_embedder.mlp[0].weight.is_meta:
+            return
         # Initialize timestep embedder
         nn.init.normal_(self.t_embedder.mlp[0].weight, std=0.02)
         nn.init.normal_(self.t_embedder.mlp[2].weight, std=0.02)
