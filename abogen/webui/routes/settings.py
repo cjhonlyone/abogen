@@ -76,7 +76,7 @@ def update_settings() -> ResponseReturnValue:
     current["replace_single_newlines"] = coerce_bool(form.get("replace_single_newlines"), False)
     current["use_gpu"] = coerce_bool(form.get("use_gpu"), False)
     current["save_chapters_separately"] = coerce_bool(form.get("save_chapters_separately"), False)
-    current["merge_chapters_at_end"] = coerce_bool(form.get("merge_chapters_at_end"), True)
+    current["merge_chapters_at_end"] = coerce_bool(form.get("merge_chapters_at_end"), False)
     current["save_as_project"] = coerce_bool(form.get("save_as_project"), False)
     current["separate_chapters_format"] = (form.get("separate_chapters_format") or "wav").strip()
     
@@ -91,9 +91,9 @@ def update_settings() -> ResponseReturnValue:
         pass
         
     current["read_title_intro"] = coerce_bool(form.get("read_title_intro"), False)
-    current["read_closing_outro"] = coerce_bool(form.get("read_closing_outro"), True)
-    current["normalize_chapter_opening_caps"] = coerce_bool(form.get("normalize_chapter_opening_caps"), True)
-    current["auto_prefix_chapter_titles"] = coerce_bool(form.get("auto_prefix_chapter_titles"), True)
+    current["read_closing_outro"] = coerce_bool(form.get("read_closing_outro"), False)
+    current["normalize_chapter_opening_caps"] = coerce_bool(form.get("normalize_chapter_opening_caps"), False)
+    current["auto_prefix_chapter_titles"] = coerce_bool(form.get("auto_prefix_chapter_titles"), False)
     
     try:
         current["max_subtitle_words"] = max(1, int(form.get("max_subtitle_words", 50)))

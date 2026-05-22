@@ -832,7 +832,7 @@ def build_pending_job_from_extraction(
     replace_single_newlines = settings["replace_single_newlines"]
     use_gpu = settings["use_gpu"]
     save_chapters_separately = settings["save_chapters_separately"]
-    merge_chapters_at_end = settings["merge_chapters_at_end"] or not save_chapters_separately
+    merge_chapters_at_end = settings["merge_chapters_at_end"]
     save_as_project = settings["save_as_project"]
     separate_chapters_format = settings["separate_chapters_format"]
     silence_between_chapters = settings["silence_between_chapters"]
