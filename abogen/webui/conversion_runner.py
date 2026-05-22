@@ -1761,7 +1761,7 @@ def run_conversion_job(job: Job) -> None:
         audio_path: Optional[Path] = None
         audio_sink: Optional[AudioSink] = None
         if merged_required:
-            audio_path = _build_output_path(audio_dir, job.original_filename, job.output_format)
+            audio_path = _build_output_path(audio_dir, Path(job.original_filename).stem, job.output_format)
             meta_for_sink = job.metadata_tags if job.metadata_tags else None
             audio_sink = _open_audio_sink(audio_path, job, sink_stack, metadata=meta_for_sink)
             subtitle_writer = _create_subtitle_writer(job, audio_path)
@@ -2337,7 +2337,7 @@ def run_conversion_job(job: Job) -> None:
             if audio_asset:
                 try:
                     epub_root = project_root
-                    epub_output_path = _build_output_path(epub_root, job.original_filename, "epub")
+                    epub_output_path = _build_output_path(epub_root, Path(job.original_filename).stem, "epub")
                     job.add_log("Generating EPUB 3 package with synchronized narration…")
                     epub_path = build_epub3_package(
                         output_path=epub_output_path,
@@ -2511,7 +2511,13 @@ def _prepare_output_dir(job: Job) -> Path:
 
 
 def _build_output_path(directory: Path, original_name: str, extension: str) -> Path:
-    sanitized = _sanitize_output_stem(original_name)
+    # NOTE: ``original_name`` is treated as an already-stripped stem.
+    # We must NOT call ``Path(original_name).stem`` here — when chapter
+    # titles or book names contain a literal ``.`` (e.g. "LAURA. DAVE"),
+    # ``Path.stem`` interprets the trailing portion as an extension and
+    # silently truncates it, causing every chapter file to collapse to
+    # the same name. Sanitize the characters directly instead.
+    sanitized = _OUTPUT_SANITIZE_RE.sub("_", str(original_name or "")).strip("_") or "output"
     directory.mkdir(parents=True, exist_ok=True)
     return directory / f"{sanitized}.{extension}"
 
