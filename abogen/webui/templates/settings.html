@@ -121,11 +121,35 @@
 
             <div class="field field--wide">
               <p class="tag">VibeVoice settings</p>
-              <p class="hint">Place model weights under <code>~/.cache/abogen/vibevoice/&lt;model&gt;/</code> (with a <code>tokenizer/</code> subdir).</p>
+              <p class="hint">Model weights are auto-discovered from <code>~/.cache/abogen/vibevoice/</code> and the HuggingFace hub cache.</p>
             </div>
             <div class="field">
               <label for="vibevoice_model">VibeVoice Model</label>
-              <input type="text" id="vibevoice_model" name="vibevoice_model" value="{{ settings.vibevoice_model }}" placeholder="VibeVoice-1.5B">
+              <select id="vibevoice_model" name="vibevoice_model">
+                <option value="{{ settings.vibevoice_model }}" selected>{{ settings.vibevoice_model }}</option>
+              </select>
+              <script>
+                (function () {
+                  const sel = document.getElementById("vibevoice_model");
+                  const current = sel.value;
+                  fetch("/api/vibevoice/models")
+                    .then(r => r.json())
+                    .then(data => {
+                      const models = data.models && data.models.length ? data.models : (data.known || []);
+                      sel.innerHTML = "";
+                      // Always include current value even if not found on disk
+                      const names = models.includes(current) ? models : [current, ...models];
+                      names.forEach(name => {
+                        const opt = document.createElement("option");
+                        opt.value = name;
+                        opt.textContent = models.includes(name) ? name : name + " (not found)";
+                        opt.selected = name === current;
+                        sel.appendChild(opt);
+                      });
+                    })
+                    .catch(() => { /* keep the default option on error */ });
+                })();
+              </script>
             </div>
             <div class="field">
               <label for="vibevoice_diffusion_steps">Diffusion Steps</label>

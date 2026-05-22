@@ -243,6 +243,51 @@ def _resolve_model_dir(model_name: str) -> Path:
         ) from exc
 
 
+def scan_vibevoice_models() -> List[str]:
+    """Return model names that are actually present on disk.
+
+    Checks every known model name from *DEFAULT_VIBEVOICE_MODELS* plus any
+    unrecognised directories discovered inside the search roots.  Returns a
+    deduplicated, sorted list so the UI can offer a meaningful dropdown.
+    """
+    found: dict[str, bool] = {}  # name → already_added guard
+
+    # 1. Known model names whose candidate dirs exist and are non-empty.
+    for name in DEFAULT_VIBEVOICE_MODELS:
+        for cand in _candidate_model_dirs(name):
+            if cand.exists() and any(cand.iterdir()):
+                found[name] = True
+                break
+
+    # 2. Any extra model directories inside the abogen vibevoice cache root
+    #    that don't match a known name (e.g. user placed a custom model there).
+    try:
+        from abogen.utils import get_user_cache_path
+        base = Path(get_user_cache_path()) / "vibevoice"
+    except Exception:
+        base = Path.home() / ".cache" / "abogen" / "vibevoice"
+    if base.exists():
+        for entry in base.iterdir():
+            if entry.is_dir() and any(entry.iterdir()):
+                found[entry.name] = True
+
+    # 3. Standard HuggingFace hub cache — extract user-friendly names.
+    hf_hub_cache = (
+        Path(os.environ["HF_HUB_CACHE"])
+        if "HF_HUB_CACHE" in os.environ
+        else Path(os.environ.get("HF_HOME", Path.home() / ".cache" / "huggingface")) / "hub"
+    )
+    if hf_hub_cache.exists():
+        for model_dir in hf_hub_cache.glob("models--*--VibeVoice*/snapshots/*"):
+            if model_dir.is_dir() and any(model_dir.iterdir()):
+                # Extract the model name from "models--<org>--<name>" pattern.
+                repo_part = model_dir.parent.parent.name  # e.g. models--aoi-ot--VibeVoice-Large
+                name = repo_part.split("--", 2)[-1] if "--" in repo_part else repo_part
+                found[name] = True
+
+    return sorted(found.keys())
+
+
 def _resolve_tokenizer_dir(model_dir: Path) -> Path:
     base = model_dir.parent
     for cand in (

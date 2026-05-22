@@ -704,3 +704,16 @@ def api_entity_pronunciation_preview() -> ResponseReturnValue:
         return jsonify({"audio_base64": audio_base64})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+
+
+# --- VibeVoice Model Discovery ---
+
+@api_bp.get("/vibevoice/models")
+def list_vibevoice_models() -> ResponseReturnValue:
+    """Return VibeVoice model names found on disk (for the settings dropdown)."""
+    try:
+        from abogen.tts_vibevoice import scan_vibevoice_models, DEFAULT_VIBEVOICE_MODELS
+        available = scan_vibevoice_models()
+        return jsonify({"models": available, "known": list(DEFAULT_VIBEVOICE_MODELS)})
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
