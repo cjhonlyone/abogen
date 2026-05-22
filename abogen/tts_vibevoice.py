@@ -377,6 +377,18 @@ class VibeVoicePipeline:
                 "Install with: pip install \"abogen[vibevoice]\""
             ) from exc
 
+        # Check for diffusers early so users get a clear actionable message.
+        try:
+            import diffusers  # noqa: F401
+        except ImportError as exc:
+            raise RuntimeError(
+                "VibeVoice requires 'diffusers' which is not installed.\n"
+                "Run one of the following commands:\n"
+                "  Windows embedded: python_embedded\\python.exe -m uv pip install --system "
+                "diffusers accelerate librosa peft scipy ml-collections\n"
+                "  Other:            pip install diffusers accelerate librosa peft scipy ml-collections"
+            ) from exc
+
         model_dir = _resolve_model_dir(self.model_name)
         tokenizer_dir = _resolve_tokenizer_dir(model_dir)
 
