@@ -139,13 +139,21 @@ def generate_preview_audio(
     if provider == "supertonic":
         from abogen.tts_supertonic import SupertonicPipeline
 
-        pipeline = SupertonicPipeline(sample_rate=SAMPLE_RATE, auto_download=True, total_steps=supertonic_total_steps)
+        # Resolve language: explicit arg → settings supertonic_lang → "en" default
+        try:
+            from abogen.webui.routes.utils.settings import get_settings
+            _settings = get_settings()
+        except Exception:
+            _settings = {}
+        supertonic_lang = (language or "").strip() or _settings.get("supertonic_lang", "") or "en"
+        pipeline = SupertonicPipeline(sample_rate=SAMPLE_RATE, auto_download=True, total_steps=supertonic_total_steps, language=supertonic_lang)
         segments = pipeline(
             normalized_text,
             voice=voice_spec,
             speed=speed,
             split_pattern=SPLIT_PATTERN,
             total_steps=supertonic_total_steps,
+            language=supertonic_lang,
         )
     elif provider == "vibevoice":
         from abogen.tts_vibevoice import VibeVoicePipeline
