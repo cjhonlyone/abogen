@@ -130,12 +130,20 @@ class VibeVoicePreTrainedModel(PreTrainedModel):
             std = self.config.decoder_config.initializer_range
         else:
             std = 0.02  # Default value
-            
+
         if isinstance(module, nn.Linear):
+            # Skip meta tensors. Under from_pretrained's init_empty_weights() context,
+            # parameters have no .data storage; in-place ops like .normal_() raise
+            # "Cannot copy out of meta tensor; no data!". Real weights come from the
+            # checkpoint anyway, so skipping random init is safe.
+            if module.weight.is_meta:
+                return
             module.weight.data.normal_(mean=0.0, std=std)
             if module.bias is not None:
                 module.bias.data.zero_()
         elif isinstance(module, nn.LayerNorm):
+            if module.weight.is_meta:
+                return
             module.weight.data.fill_(1.0)
             module.bias.data.zero_()
 
