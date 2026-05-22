@@ -636,8 +636,9 @@ class VibeVoiceForConditionalGenerationInference(VibeVoicePreTrainedModel, Gener
             
             if not kwargs.get('refresh_negative', True):
                 negative_model_inputs = self.prepare_inputs_for_generation(negative_input_ids, **negative_model_kwargs)
-                # Forward negative pass through the model
-                if negative_model_inputs['inputs_embeds'] is None and inputs_embeds is not None:
+                # Forward negative pass through the model. See note below at the
+                # symmetric site: transformers>=4.55 may omit 'inputs_embeds'.
+                if negative_model_inputs.get('inputs_embeds') is None and inputs_embeds is not None:
                     negative_model_inputs['inputs_embeds'] = inputs_embeds
                     negative_model_inputs['input_ids'] = None
 
@@ -727,8 +728,11 @@ class VibeVoiceForConditionalGenerationInference(VibeVoicePreTrainedModel, Gener
             if diffusion_indices.numel() > 0:
                 if kwargs.get('refresh_negative', True):
                     negative_model_inputs = self.prepare_inputs_for_generation(negative_input_ids, **negative_model_kwargs)
-                    # Forward negative pass through the model
-                    if negative_model_inputs['inputs_embeds'] is None and inputs_embeds is not None:
+                    # Forward negative pass through the model.
+                    # transformers>=4.55: prepare_inputs_for_generation no longer
+                    # populates 'inputs_embeds' in the returned dict when it was
+                    # not provided as input, so use .get() to avoid KeyError.
+                    if negative_model_inputs.get('inputs_embeds') is None and inputs_embeds is not None:
                         negative_model_inputs['inputs_embeds'] = inputs_embeds
                         negative_model_inputs['input_ids'] = None
 
