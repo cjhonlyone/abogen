@@ -438,8 +438,12 @@ class VibeVoicePipeline:
             )
             self._model.eval()
         except Exception as exc:
+            import traceback
+            tb = traceback.format_exc()
+            logger.error("VibeVoice model load failed:\n%s", tb)
             raise RuntimeError(
-                f"Failed to load VibeVoice model from {model_dir}: {exc}"
+                f"Failed to load VibeVoice model from {model_dir}: {exc}\n\n"
+                f"Full traceback:\n{tb}"
             ) from exc
 
         try:
