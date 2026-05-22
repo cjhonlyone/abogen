@@ -22,8 +22,13 @@ def check_cuda_with_fix():
 
     try:
         from torch.cuda import is_available
-        print(is_available())
-    except ImportError:
+        # Also verify the torch build actually has CUDA support (version.cuda is None
+        # for CPU-only wheels even when is_available() incorrectly returns True via
+        # some driver detection paths).
+        import torch
+        result = is_available() and torch.version.cuda is not None
+        print(result)
+    except Exception:
         print("False")
 
 if __name__ == "__main__":

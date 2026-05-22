@@ -310,9 +310,10 @@ for /f %%i in ('%PYTHON_CONSOLE_PATH% -c "from abogen.is_nvidia import check; pr
 echo.
 echo Checking CUDA availability...
 if /I "%IS_NVIDIA%"=="true" (
-    for /f %%i in ('%PYTHON_CONSOLE_PATH% %PROJECTFOLDER%\check_cuda.py') do set cuda_available=%%i
+    set cuda_available=False
+    for /f %%i in ('%PYTHON_CONSOLE_PATH% %PROJECTFOLDER%\check_cuda.py 2^>nul') do set cuda_available=%%i
 
-    if "%cuda_available%"=="False" (
+    if /I NOT "%cuda_available%"=="True" (
         echo "Installing PyTorch with CUDA (12.8) support..."
         :: We need to use an older version of PyTorch (2.8.0) until this issue is fixed: https://github.com/pytorch/pytorch/issues/166628
         :: Solution mentioned by @mazenemam19 in #99:
