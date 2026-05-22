@@ -1771,7 +1771,9 @@ def run_conversion_job(job: Job) -> None:
 
         chapter_dir: Optional[Path] = None
         if job.save_chapters_separately:
-            chapter_dir = audio_dir / "chapters"
+            # Place chapter files directly in audio_dir (no "chapters/" subfolder)
+            # so the layout is compatible with AudiobookShelf's flat-book structure.
+            chapter_dir = audio_dir
             chapter_dir.mkdir(parents=True, exist_ok=True)
 
         base_voice_spec = _job_voice_fallback(job)
@@ -1978,9 +1980,12 @@ def run_conversion_job(job: Job) -> None:
                 chapter_sink: Optional[AudioSink] = None
 
                 if chapter_dir is not None:
+                    # ABS-compatible filename: "01 - Chapter Title.ext"
+                    # The leading zero-padded index is parsed by ABS as the track number.
+                    abs_stem = f"{idx:02d} - {chapter_display_title}"
                     chapter_audio_path = _build_output_path(
                         chapter_dir,
-                        f"{Path(job.original_filename).stem}_{_slugify(chapter_display_title, idx)}",
+                        abs_stem,
                         job.separate_chapters_format,
                     )
                     chapter_sink = _open_audio_sink(
@@ -2269,7 +2274,7 @@ def run_conversion_job(job: Job) -> None:
                     if chapter_dir is not None:
                         outro_audio_path = _build_output_path(
                             chapter_dir,
-                            f"{Path(job.original_filename).stem}_outro",
+                            f"{outro_index:02d} - Outro",
                             job.separate_chapters_format,
                         )
                         chapter_sink = _open_audio_sink(
