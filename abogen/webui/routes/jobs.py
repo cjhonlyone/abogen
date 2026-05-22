@@ -1,5 +1,7 @@
+import io
 import json
 import logging
+import zipfile
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -18,6 +20,7 @@ from abogen.webui.routes.utils.epub import (
     job_download_flags,
     locate_job_epub,
     locate_job_audio,
+    locate_job_chapter_files,
 )
 from abogen.webui.routes.utils.settings import (
     stored_integration_config,
@@ -241,7 +244,26 @@ def download_file(job_id: str, file_type: str) -> ResponseReturnValue:
             as_attachment=True,
             download_name=path.name,
         )
-    
+
+    if file_type == "chapters_zip":
+        chapter_files = locate_job_chapter_files(job)
+        if not chapter_files:
+            abort(404)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, "w", zipfile.ZIP_STORED) as zf:
+            for p in chapter_files:
+                zf.write(p, p.name)
+        buffer.seek(0)
+        from pathlib import Path as _Path
+        book_stem = _Path(getattr(job, "original_filename", None) or "audiobook").stem
+        safe_name = "".join(c if c.isalnum() or c in "-_. " else "_" for c in book_stem).strip()
+        return send_file(
+            buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name=f"{safe_name or 'chapters'}.zip",
+        )
+
     # Handle other file types if needed (subtitles, etc.)
     # For now, just audio and epub are explicitly handled
     abort(404)

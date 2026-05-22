@@ -424,11 +424,36 @@ def locate_job_audio(job: Job, preferred_suffixes: Optional[Iterable[str]] = Non
     return files[0] if files else None
 
 
+_AUDIO_EXTENSIONS = frozenset([".mp3", ".m4b", ".flac", ".opus", ".ogg", ".m4a", ".wav"])
+
+
+def locate_job_chapter_files(job: Job) -> List[Path]:
+    """Return all chapter audio artifact paths, sorted by filename."""
+    result = getattr(job, "result", None)
+    if result is None:
+        return []
+    artifacts = getattr(result, "artifacts", None)
+    if not isinstance(artifacts, Mapping):
+        return []
+    paths = []
+    for key, value in sorted(artifacts.items()):
+        if not str(key).startswith("chapter_"):
+            continue
+        candidate = _coerce_path(value)
+        if candidate and candidate.exists() and candidate.is_file():
+            if candidate.suffix.lower() in _AUDIO_EXTENSIONS:
+                paths.append(candidate)
+    return paths
+
+
 def job_download_flags(job: Job) -> Dict[str, bool]:
     if job.status != JobStatus.COMPLETED:
-        return {"audio": False, "m4b": False, "epub3": False}
+        return {"audio": False, "m4b": False, "epub3": False, "chapters_zip": False}
+    chapter_files = locate_job_chapter_files(job)
+    has_merged = locate_job_audio(job) is not None
     return {
-        "audio": locate_job_audio(job) is not None,
+        "audio": has_merged,
         "m4b": locate_job_m4b(job) is not None,
         "epub3": locate_job_epub(job) is not None,
+        "chapters_zip": not has_merged and len(chapter_files) > 0,
     }

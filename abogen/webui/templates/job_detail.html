@@ -47,6 +47,8 @@
   <p><a class="button" href="{{ url_for('jobs.download_file', job_id=job.id, file_type='audio') }}">Download M4B</a></p>
   {% elif flags.get('audio') %}
   <p><a class="button" href="{{ url_for('jobs.download_file', job_id=job.id, file_type='audio') }}">Download audio</a></p>
+  {% elif flags.get('chapters_zip') %}
+  <p><a class="button" href="{{ url_for('jobs.download_file', job_id=job.id, file_type='chapters_zip') }}">Download Chapters (ZIP)</a></p>
   {% endif %}
   {% if flags.get('epub3') %}
   <p><a class="button button--ghost" href="{{ url_for('jobs.job_epub', job_id=job.id) }}">Download EPUB 3</a></p>
