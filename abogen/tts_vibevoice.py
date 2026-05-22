@@ -524,8 +524,18 @@ class VibeVoicePipeline:
                 )
                 continue
 
-            if isinstance(speech, list) and len(speech) > 0:
-                audio_tensor = torch.cat([t for t in speech if t is not None], dim=-1)
+            if isinstance(speech, list):
+                tensors = [t for t in speech if t is not None and getattr(t, "numel", lambda: 1)() > 0]
+                if not tensors:
+                    logger.error(
+                        "VibeVoice speech_outputs list contained no usable tensors "
+                        "(len=%d, types=%s) for chunk (%d chars); skipping.",
+                        len(speech),
+                        [type(t).__name__ for t in speech],
+                        len(chunk),
+                    )
+                    continue
+                audio_tensor = torch.cat(tensors, dim=-1)
             else:
                 audio_tensor = speech
 

@@ -228,7 +228,14 @@ def api_voice_profiles_preview() -> ResponseReturnValue:
             max_seconds=max_seconds,
         )
     except Exception as exc:
-        return jsonify({"error": str(exc)}), 500
+        import traceback as _tb
+        tb = _tb.format_exc()
+        try:
+            from flask import current_app
+            current_app.logger.error("voice-profiles/preview failed:\n%s", tb)
+        except Exception:
+            pass
+        return jsonify({"error": str(exc), "traceback": tb}), 500
 
 @api_bp.post("/speaker-preview")
 def api_speaker_preview() -> ResponseReturnValue:
