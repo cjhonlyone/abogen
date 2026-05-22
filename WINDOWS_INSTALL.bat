@@ -373,7 +373,7 @@ if errorlevel 2 (
     echo Skipping VibeVoice installation.
 ) else (
     echo Installing VibeVoice dependencies...
-    %PYTHON_CONSOLE_PATH% -m uv pip install --system diffusers accelerate librosa peft scipy ml-collections
+    %PYTHON_CONSOLE_PATH% -m uv pip install --system diffusers accelerate librosa peft scipy ml-collections tokenizers sentencepiece
     if errorlevel 1 (
         echo Warning: Some VibeVoice dependencies failed to install.
     ) else (
