@@ -1011,7 +1011,7 @@ class VibeVoiceAcousticTokenizerModel(PreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         
-        self.register_buffer('fix_std', torch.tensor(config.fix_std), persistent=False)
+        self.fix_std = float(config.fix_std)
         self.std_dist_type = getattr(config, "std_dist_type", "fix")
         
         # Parse encoder depths

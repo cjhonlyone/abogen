@@ -427,11 +427,15 @@ class VibeVoicePipeline:
             import torch
 
             dtype = torch.bfloat16 if self.device != "cpu" else torch.float32
+            # Use device_map to place model directly on target device during loading.
+            # Calling .to(device) AFTER from_pretrained on a model that contains
+            # non-persistent buffers (which remain as meta tensors after weight loading)
+            # triggers "Cannot copy out of meta tensor" errors.
+            if "quantization_config" not in load_kwargs:
+                load_kwargs["device_map"] = {"": self.device}
             self._model = VibeVoiceForConditionalGenerationInference.from_pretrained(
                 str(model_dir), torch_dtype=dtype, **load_kwargs
             )
-            if "quantization_config" not in load_kwargs:
-                self._model = self._model.to(self.device)
             self._model.eval()
         except Exception as exc:
             raise RuntimeError(
